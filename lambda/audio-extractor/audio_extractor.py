@@ -1,0 +1,181 @@
+"""
+Audio Extractor Lambda — extracts audio from large video files using FFmpeg.
+Triggered by the main transcribe-customer-csc Lambda for files >1hr or >2GB.
+Outputs .mp3 audio files to S3 for Transcribe to pick up.
+
+If audio duration > 4 hours, splits into 30-minute chunks.
+"""
+
+import boto3
+import os
+import uuid
+import json
+import logging
+import subprocess
+import math
+
+s3_client = boto3.client('s3')
+dynamodb = boto3.resource('dynamodb')
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+TRACKING_TABLE = os.environ.get('TRACKING_TABLE', 'video-processing-jobs')
+CHUNK_DURATION_SECONDS = 1800  # 30 minutes
+MAX_TRANSCRIBE_DURATION = 14000  # ~3.9 hours (safe margin under 4hr limit)
+TMP_DIR = '/tmp'
+FFMPEG = '/opt/bin/ffmpeg'
+FFPROBE = '/opt/bin/ffprobe'
+
+
+def lambda_handler(event, context):
+    """
+    Expected event:
+    {
+        "bucket": "customer-csc",
+        "key": "dropi-colombia/2026-03-18 11-28-40.mov",
+        "job_id": "uuid-string"
+    }
+    """
+    try:
+        bucket = event['bucket']
+        key = event['key']
+        job_id = event.get('job_id', str(uuid.uuid4()))
+
+        logger.info(f"Extracting audio from: s3://{bucket}/{key}, job: {job_id}")
+
+        # Download video to /tmp
+        video_filename = os.path.basename(key)
+        video_path = os.path.join(TMP_DIR, video_filename)
+
+        logger.info(f"Downloading video to {video_path}")
+        s3_client.download_file(bucket, key, video_path)
+        file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
+        logger.info(f"Downloaded: {file_size_mb:.1f}MB")
+
+        # Get audio duration using ffprobe
+        duration = get_audio_duration(video_path)
+        logger.info(f"Audio duration: {duration:.0f}s ({duration/3600:.1f}hrs)")
+
+        # Extract audio as mp3
+        audio_path = os.path.join(TMP_DIR, f"{job_id}.mp3")
+        extract_audio(video_path, audio_path)
+
+        # Remove video to free /tmp space
+        os.remove(video_path)
+
+        audio_size_mb = os.path.getsize(audio_path) / (1024 * 1024)
+        logger.info(f"Audio extracted: {audio_size_mb:.1f}MB")
+
+        table = dynamodb.Table(TRACKING_TABLE)
+
+        if duration <= MAX_TRANSCRIBE_DURATION:
+            # Single audio file — upload directly
+            audio_key = f"audio/{job_id}/{os.path.basename(key)}.mp3"
+            s3_client.upload_file(audio_path, bucket, audio_key)
+            os.remove(audio_path)
+
+            # Update DynamoDB
+            table.update_item(
+                Key={'job_id': job_id},
+                UpdateExpression='SET #s = :s, estimated_chunks = :c, audio_key = :ak',
+                ExpressionAttributeNames={'#s': 'status'},
+                ExpressionAttributeValues={
+                    ':s': 'audio_ready',
+                    ':c': 1,
+                    ':ak': audio_key
+                }
+            )
+
+            logger.info(f"Single audio file uploaded: {audio_key}")
+            return {'statusCode': 200, 'body': json.dumps({
+                'message': 'Audio extracted (single file)',
+                'job_id': job_id,
+                'audio_key': audio_key,
+                'duration_seconds': int(duration)
+            })}
+        else:
+            # Split audio into chunks
+            num_chunks = math.ceil(duration / CHUNK_DURATION_SECONDS)
+            logger.info(f"Splitting audio into {num_chunks} chunks of {CHUNK_DURATION_SECONDS}s")
+
+            chunk_keys = split_audio(audio_path, bucket, job_id, num_chunks)
+            os.remove(audio_path)
+
+            # Update DynamoDB
+            table.update_item(
+                Key={'job_id': job_id},
+                UpdateExpression='SET #s = :s, estimated_chunks = :c',
+                ExpressionAttributeNames={'#s': 'status'},
+                ExpressionAttributeValues={
+                    ':s': 'audio_chunks_ready',
+                    ':c': len(chunk_keys)
+                }
+            )
+
+            logger.info(f"Audio split into {len(chunk_keys)} chunks")
+            return {'statusCode': 200, 'body': json.dumps({
+                'message': f'Audio split into {len(chunk_keys)} chunks',
+                'job_id': job_id,
+                'chunks': len(chunk_keys),
+                'duration_seconds': int(duration)
+            })}
+
+    except Exception as e:
+        logger.error(f"Audio extraction failed: {str(e)}")
+        return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+
+
+def get_audio_duration(video_path):
+    """Get audio duration in seconds using ffprobe"""
+    result = subprocess.run(
+        [FFPROBE, '-v', 'quiet', '-show_entries', 'format=duration',
+         '-of', 'default=noprint_wrappers=1:nokey=1', video_path],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        logger.error(f"ffprobe error: {result.stderr}")
+        raise RuntimeError(f"ffprobe failed: {result.stderr}")
+    return float(result.stdout.strip())
+
+
+def extract_audio(video_path, audio_path):
+    """Extract audio from video as MP3 using FFmpeg"""
+    result = subprocess.run(
+        [FFMPEG, '-i', video_path, '-vn', '-acodec', 'libmp3lame',
+         '-ab', '128k', '-ar', '44100', '-ac', '1', '-y', audio_path],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        logger.error(f"FFmpeg extract error: {result.stderr}")
+        raise RuntimeError(f"FFmpeg audio extraction failed: {result.stderr}")
+
+
+def split_audio(audio_path, bucket, job_id, num_chunks):
+    """Split audio into chunks and upload each to S3"""
+    chunk_keys = []
+
+    for i in range(num_chunks):
+        start_time = i * CHUNK_DURATION_SECONDS
+        chunk_path = os.path.join(TMP_DIR, f"chunk_{i:03d}.mp3")
+
+        result = subprocess.run(
+            [FFMPEG, '-i', audio_path, '-ss', str(start_time),
+             '-t', str(CHUNK_DURATION_SECONDS), '-acodec', 'copy',
+             '-y', chunk_path],
+            capture_output=True, text=True
+        )
+
+        if result.returncode != 0:
+            logger.warning(f"Chunk {i} split warning: {result.stderr}")
+            if not os.path.exists(chunk_path):
+                continue
+
+        # Upload chunk to S3
+        chunk_key = f"audio/{job_id}/chunk_{i:03d}.mp3"
+        s3_client.upload_file(chunk_path, bucket, chunk_key)
+        os.remove(chunk_path)
+        chunk_keys.append(chunk_key)
+        logger.info(f"Uploaded chunk {i}: {chunk_key}")
+
+    return chunk_keys
