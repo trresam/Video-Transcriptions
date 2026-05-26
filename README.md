@@ -48,7 +48,14 @@ npx cdk deploy --profile <YOUR_PROFILE>
 
 Requires: Node.js, Python 3.10+, Docker (for building audio-extractor image), AWS CLI.
 
-> **No Docker access?** If Docker Desktop requires a license on your machine, use the **CloudShell** method above instead — it has Docker pre-installed.
+## ⚠️ Docker Not Available?
+
+If you get a Docker error like `access_denied` or `403` (common on corporate laptops where Docker Desktop requires a license), **use CloudShell instead**:
+
+1. Open the **AWS Console** → click **CloudShell** (top nav bar)
+2. Run the 5 commands from the "Deploy (AWS CloudShell)" section above
+
+CloudShell has Docker pre-installed — no license needed. This is the easiest deployment method.
 
 ## Usage
 
