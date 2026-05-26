@@ -5,7 +5,7 @@ Deploy the entire video transcription + AI summary pipeline to any AWS account w
 ## What Gets Deployed
 
 - **S3 Bucket** — Upload videos here (private, auto-named)
-- **Lambda: transcribe-customer-csc** — Main orchestrator (routes videos, starts transcription, generates summaries)
+- **Lambda: Orchestrator** — Main orchestrator (routes videos, starts transcription, generates summaries)
 - **Lambda: audio-extractor** — Docker container with FFmpeg for large video processing
 - **DynamoDB: video-processing-jobs** — Tracks job progress
 - **SQS Dead Letter Queue** — Catches failed invocations
@@ -45,14 +45,7 @@ docker info
 ### Step 3: Log in to the target AWS account
 
 ```bash
-# For the Prod account:
-aws sso login --profile AWS-Team-Prod
-
-# For your Work account:
-aws sso login --profile AWS-Trresam-Account
-
-# For GenAIDemos:
-aws sso login --profile GenAIDemos
+aws sso login --profile <YOUR_PROFILE>
 ```
 
 ### Step 4: Bootstrap CDK (first time only per account)
@@ -60,13 +53,13 @@ aws sso login --profile GenAIDemos
 This creates a CDK staging bucket in the account. Only needed once per account/region.
 
 ```bash
-npx cdk bootstrap --profile AWS-Team-Prod
+npx cdk bootstrap --profile <YOUR_PROFILE>
 ```
 
 ### Step 5: Deploy
 
 ```bash
-npx cdk deploy --profile AWS-Team-Prod
+npx cdk deploy --profile <YOUR_PROFILE>
 ```
 
 CDK will:
@@ -94,7 +87,7 @@ VideoPipelineStack.AudioExtractorArn = arn:aws:lambda:...
 Upload a video and the pipeline runs automatically:
 
 ```bash
-aws s3 cp my-meeting.mp4 s3://<BUCKET_NAME>/ --profile AWS-Team-Prod
+aws s3 cp my-meeting.mp4 s3://<BUCKET_NAME>/ --profile <YOUR_PROFILE>
 ```
 
 **Supported formats:** .mp4, .mov, .mp3, .wav, .flac, .m4a, .ogg, .amr, .webm, .avi
@@ -110,13 +103,13 @@ aws s3 cp my-meeting.mp4 s3://<BUCKET_NAME>/ --profile AWS-Team-Prod
 
 ```bash
 # List transcriptions
-aws s3 ls s3://<BUCKET_NAME>/transcriptions/ --profile AWS-Team-Prod
+aws s3 ls s3://<BUCKET_NAME>/transcriptions/ --profile <YOUR_PROFILE>
 
 # List summaries
-aws s3 ls s3://<BUCKET_NAME>/summaries/ --profile AWS-Team-Prod
+aws s3 ls s3://<BUCKET_NAME>/summaries/ --profile <YOUR_PROFILE>
 
 # Download a summary
-aws s3 cp s3://<BUCKET_NAME>/summaries/my-meeting.mp4_summary.txt . --profile AWS-Team-Prod
+aws s3 cp s3://<BUCKET_NAME>/summaries/my-meeting.mp4_summary.txt . --profile <YOUR_PROFILE>
 ```
 
 ## Tear Down
@@ -124,7 +117,7 @@ aws s3 cp s3://<BUCKET_NAME>/summaries/my-meeting.mp4_summary.txt . --profile AW
 To remove everything from the account:
 
 ```bash
-npx cdk destroy --profile AWS-Team-Prod
+npx cdk destroy --profile <YOUR_PROFILE>
 ```
 
 This deletes all resources including the S3 bucket and its contents.
@@ -137,6 +130,6 @@ This deletes all resources including the S3 bucket and its contents.
 | `CDKToolkit stack not found` | Run `npx cdk bootstrap --profile <PROFILE>` |
 | `No module named 'aws_cdk'` | Run `pip3 install -r requirements.txt` |
 | `ExpiredToken` | Re-run `aws sso login --profile <PROFILE>` |
-| Video uploaded but no transcription | Check Lambda logs: `aws logs tail /aws/lambda/transcribe-customer-csc --profile <PROFILE>` |
+| Video uploaded but no transcription | Check Lambda logs: `aws logs tail /aws/lambda/<ORCHESTRATOR_NAME> --profile <PROFILE>` (get name from CDK outputs) |
 | Summary not generated | Verify Bedrock model access is enabled in the account |
 | Audio extractor timeout | File may be too large for Lambda's 10GB /tmp — split manually |

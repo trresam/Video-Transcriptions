@@ -9,7 +9,7 @@ Automated pipeline that transcribes meeting videos and generates AI summaries us
 | Resource | Purpose |
 |---|---|
 | S3 Bucket | Upload videos, stores transcriptions & summaries |
-| Lambda: transcribe-customer-csc | Orchestrates the pipeline |
+| Lambda: Orchestrator | Orchestrates the pipeline |
 | Lambda: audio-extractor | FFmpeg container for large video processing |
 | DynamoDB: video-processing-jobs | Tracks job progress |
 | SQS Dead Letter Queue | Catches failures |
