@@ -48,6 +48,8 @@ npx cdk deploy --profile <YOUR_PROFILE>
 
 Requires: Node.js, Python 3.10+, Docker (for building audio-extractor image), AWS CLI.
 
+> **No Docker access?** If Docker Desktop requires a license on your machine, use the **CloudShell** method above instead — it has Docker pre-installed.
+
 ## Usage
 
 After deployment, CDK prints the bucket name. Upload a video:

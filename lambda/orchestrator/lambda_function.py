@@ -22,7 +22,7 @@ lambda_client = boto3.client('lambda')
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-BUCKET_NAME = 'customer-csc'
+BUCKET_NAME = os.environ.get('BUCKET_NAME', '')
 TRACKING_TABLE = os.environ.get('TRACKING_TABLE', 'video-processing-jobs')
 AUDIO_EXTRACTOR_FUNCTION = os.environ.get('AUDIO_EXTRACTOR_FUNCTION', 'audio-extractor')
 
@@ -35,8 +35,8 @@ def lambda_handler(event, context):
             bucket = event['Records'][0]['s3']['bucket']['name']
             key = unquote_plus(event['Records'][0]['s3']['object']['key'])
 
-            if bucket != BUCKET_NAME:
-                return {'statusCode': 400, 'body': 'Wrong bucket'}
+            if not key:
+                return {'statusCode': 400, 'body': 'Empty key'}
 
             # Completed transcription
             if key.startswith('transcriptions/') and key.endswith('.json'):

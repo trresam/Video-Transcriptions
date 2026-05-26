@@ -66,6 +66,7 @@ class VideoPipelineStack(Stack):
             environment={
                 "TRACKING_TABLE": tracking_table.table_name,
                 "AUDIO_EXTRACTOR_FUNCTION": audio_extractor.function_name,
+                "BUCKET_NAME": bucket.bucket_name,
             },
         )
 

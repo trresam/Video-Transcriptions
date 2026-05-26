@@ -30,7 +30,7 @@ Deploy the entire video transcription + AI summary pipeline to any AWS account w
 ### Step 1: Install Python dependencies
 
 ```bash
-cd "/Users/trresam/Cloud Project /video-pipeline-cdk"
+cd Video-Transcriptions
 pip3 install -r requirements.txt
 ```
 
