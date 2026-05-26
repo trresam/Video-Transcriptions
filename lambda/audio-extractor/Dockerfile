@@ -1,6 +1,6 @@
-FROM public.ecr.io/lambda/python:3.10
+FROM --platform=linux/amd64 public.ecr.aws/lambda/python:3.10
 
-# Install FFmpeg
+# Install FFmpeg (static build for x86_64 Linux)
 RUN yum install -y tar xz && \
     curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz -o /tmp/ffmpeg.tar.xz && \
     tar -xf /tmp/ffmpeg.tar.xz -C /tmp && \
