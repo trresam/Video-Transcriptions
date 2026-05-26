@@ -11,7 +11,7 @@ Automated pipeline that transcribes meeting videos and generates AI summaries us
 | S3 Bucket | Upload videos, stores transcriptions & summaries |
 | Lambda: Orchestrator | Orchestrates the pipeline |
 | Lambda: audio-extractor | FFmpeg container for large video processing |
-| DynamoDB: video-processing-jobs | Tracks job progress |
+| DynamoDB table | Tracks job progress |
 | SQS Dead Letter Queue | Catches failures |
 | S3 → Lambda trigger | Auto-processes uploaded videos |
 

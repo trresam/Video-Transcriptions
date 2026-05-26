@@ -7,7 +7,7 @@ Deploy the entire video transcription + AI summary pipeline to any AWS account w
 - **S3 Bucket** — Upload videos here (private, auto-named)
 - **Lambda: Orchestrator** — Main orchestrator (routes videos, starts transcription, generates summaries)
 - **Lambda: audio-extractor** — Docker container with FFmpeg for large video processing
-- **DynamoDB: video-processing-jobs** — Tracks job progress
+- **DynamoDB table** — Tracks job progress
 - **SQS Dead Letter Queue** — Catches failed invocations
 - **IAM Roles** — Least-privilege permissions for all services
 - **S3 → Lambda trigger** — Automatically processes any uploaded video
@@ -75,7 +75,8 @@ After deployment, CDK prints:
 ```
 Outputs:
 VideoPipelineStack.BucketName = videopipelinestack-videobucket-xxxxx
-VideoPipelineStack.TableName = video-processing-jobs
+VideoPipelineStack.TableName = videopipelinestack-trackingtable-xxxxx
+VideoPipelineStack.OrchestratorName = VideoPipelineStack-Orchestrator-xxxxx
 VideoPipelineStack.OrchestratorArn = arn:aws:lambda:...
 VideoPipelineStack.AudioExtractorArn = arn:aws:lambda:...
 ```

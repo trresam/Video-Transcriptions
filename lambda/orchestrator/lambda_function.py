@@ -451,18 +451,6 @@ def create_summary(bucket, key):
         s3_client.put_object(Bucket=bucket, Key=summary_key, Body=summary, ContentType='text/plain')
         logger.info(f"Summary created: {summary_key}")
 
-        # Invoke meeting-summary-processor if exists
-        try:
-            lambda_client.invoke(
-                FunctionName='meeting-summary-processor',
-                InvocationType='Event',
-                Payload=json.dumps({
-                    'Records': [{'s3': {'bucket': {'name': bucket}, 'object': {'key': key}}}]
-                })
-            )
-        except Exception:
-            pass
-
         return {'statusCode': 200, 'body': json.dumps({
             'message': 'Summary created',
             'summary_key': summary_key

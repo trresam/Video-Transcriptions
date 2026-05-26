@@ -18,7 +18,6 @@ class VideoPipelineStack(Stack):
         # DynamoDB table for job tracking
         tracking_table = dynamodb.Table(
             self, "TrackingTable",
-            table_name="video-processing-jobs",
             partition_key=dynamodb.Attribute(name="job_id", type=dynamodb.AttributeType.STRING),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=RemovalPolicy.DESTROY,

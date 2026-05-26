@@ -24,8 +24,8 @@ TRACKING_TABLE = os.environ.get('TRACKING_TABLE', 'video-processing-jobs')
 CHUNK_DURATION_SECONDS = 1800  # 30 minutes
 MAX_TRANSCRIBE_DURATION = 14000  # ~3.9 hours (safe margin under 4hr limit)
 TMP_DIR = '/tmp'
-FFMPEG = '/opt/bin/ffmpeg'
-FFPROBE = '/opt/bin/ffprobe'
+FFMPEG = '/usr/local/bin/ffmpeg'
+FFPROBE = '/usr/local/bin/ffprobe'
 
 
 def lambda_handler(event, context):
